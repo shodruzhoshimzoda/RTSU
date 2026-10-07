@@ -1,7 +1,9 @@
 package config
 
 import (
+	"fmt"
 	"log"
+	"net/url"
 	"os"
 
 	"github.com/ilyakaznacheev/cleanenv"
@@ -10,8 +12,19 @@ import (
 
 // Config - единая структура хряняшая все осноные конфиги приложения
 type Config struct {
-	Env        string `yaml:"env"`
-	HTTPServer `yaml:"http-server"`
+	Env         string `yaml:"env"`
+	HTTPServer  `yaml:"http-server"`
+	DatabaseDSN `yaml:"db-conn"`
+}
+
+// DatabaseDSN - структура которая хранит конфиги для подключения к базе данных
+type DatabaseDSN struct {
+	Host     string `yaml:"host" env-default:"localhost"`
+	Port     int    `yaml:"port" env-default:"5432"`
+	User     string `yaml:"user" env-default:"postgres"`
+	Database string `yaml:"database" env-default:"shop"`
+	SSLMode  string `yaml:"sslmode" env-default:"disable"`
+	Password string `yaml:"-" env-default:"DB_USER_PASSWORD"`
 }
 
 // HTTPServer - представляет из себя структуру которая хранит основные конфиги для сервера
@@ -32,6 +45,12 @@ func LoadConfig() *Config {
 
 	configFilePath := os.Getenv("CONFIG_FILE_PATH")
 
+	dbPassword := os.Getenv("DB_USER_PASSWORD")
+
+	if dbPassword == "" {
+		log.Fatal("DB_USER_PASSWORD environment variable is not set")
+	}
+
 	if configFilePath == "" {
 		log.Fatal("CONFIG_FILE_PATH environment variable is not set")
 	}
@@ -44,11 +63,25 @@ func LoadConfig() *Config {
 	var config Config
 
 	// Чтение и парсинг файла конфигурации
-
 	if err := cleanenv.ReadConfig(configFilePath, &config); err != nil {
 		log.Fatalf("Failed to read config file: %v", err)
 	}
 
+	config.Password = dbPassword // Set the database password from the environment variable
+
 	return &config
 
+}
+
+func (db *DatabaseDSN) GetDatabaseDSN() string {
+	dbDSN := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(db.User, db.Password), // coding spec symbols
+		Host:   fmt.Sprintf("%s:%d", db.Host, db.Port),
+		Path:   db.Database,
+	}
+	query := dbDSN.Query()
+	query.Set("sslmode", db.SSLMode)
+	dbDSN.RawQuery = query.Encode()
+	return dbDSN.String()
 }

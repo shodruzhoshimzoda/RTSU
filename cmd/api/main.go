@@ -29,7 +29,7 @@ func main() {
 	ctx := context.Background()
 
 	// Подключение к базе данных
-	db, err := postgres.ConnectionToDB(ctx, cfg.GetDSN())
+	db, err := postgres.ConnectionToDB(ctx, cfg.GetDatabaseDSN())
 	if err != nil {
 		log.Error("Failed to connect to database", "error", err)
 		os.Exit(1)
