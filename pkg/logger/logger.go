@@ -3,19 +3,43 @@ package logger
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lmittmann/tint"
 )
 
 const (
-	EnvProduction  = "production"
-	EnvDevelopment = "development"
+	EnvProduction  = "prod"
+	EnvDevelopment = "dev"
 	EnvLocal       = "local"
 )
 
-// SetupLogger возвращает gin.HandlerFunc в зависимости от env
-func SetupLogger(env string) gin.HandlerFunc {
+// SetupLogger возвразает логгер  для приложения с настройками в зависимости от окружения (env).
+func SetupLogger(env string) *slog.Logger {
+	options := &slog.HandlerOptions{Level: slog.LevelInfo}
+	var handler slog.Handler
+
+	if env == EnvProduction || env == EnvDevelopment {
+		handler = slog.NewJSONHandler(os.Stdout, options)
+	} else {
+		if env == EnvLocal {
+			options.Level = slog.LevelDebug
+		}
+		options.AddSource = env == EnvDevelopment
+		handler = tint.NewTextHandler(os.Stdout, &tint.Options{
+			Level:     options.Level,
+			AddSource: options.AddSource,
+		})
+	}
+
+	return slog.New(handler)
+}
+
+// SetupGinLogger возаращает мидлвея для логгера для  Http обработчиков
+func SetupGinLogger(env string) gin.HandlerFunc {
 
 	if env == EnvProduction || env == EnvDevelopment {
 
