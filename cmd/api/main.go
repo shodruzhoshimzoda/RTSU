@@ -4,7 +4,10 @@ import (
 	"context"
 	"os"
 	"rtsu-students/internal/config"
+	"rtsu-students/internal/delivery/handler"
 	"rtsu-students/internal/repository/postgres"
+	facultyrepository "rtsu-students/internal/repository/postgres/faculty"
+	facultyservice "rtsu-students/internal/services/faculty"
 	"rtsu-students/pkg/logger"
 	"strconv"
 
@@ -18,13 +21,14 @@ func healthCheck(c *gin.Context) {
 	})
 }
 
+
 func main() {
 
 	// Получение всех конфигураций приложения
 	cfg := config.LoadConfig()
 
 	log := logger.SetupLogger(cfg.Env)
-	ginLogger := logger.SetupGinLogger(cfg.Env)
+	ginLogger := logger.SetupGinLogger(cfg.Env)	
 
 	ctx := context.Background()
 
@@ -39,12 +43,24 @@ func main() {
 
 	log.Info("connection to database was successfully ")
 
+
+	// Иницализация логгера
 	router := gin.New()
-
 	router.Use(gin.Recovery()) // для перехвата паник
-	router.Use(ginLogger)
+	router.Use(ginLogger)	   // в качестве логгера булем использовать свой 
 
-	router.GET("/health", healthCheck)
+	router.GET("/health", healthCheck)	
+
+
+	// Инициализация репозитория, сервиса и хендлера для работы с факультетами
+	facultyRepo := facultyrepository.NewFacultyRepository(db)
+	facultyService := facultyservice.NewFacultyService(&facultyRepo)
+	facultyHandler := handler.NewFacultyHandler(log, *facultyService)
+
+
+	router.GET("/faculties", facultyHandler.GetFaculties)
+	
+
 
 	if err := router.Run(cfg.HTTPServer.Host + ":" + strconv.Itoa(cfg.HTTPServer.Port)); err != nil {
 		log.Error("Failed to start server", "error", err)
@@ -52,3 +68,4 @@ func main() {
 	}
 
 }
+
